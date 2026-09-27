@@ -74,7 +74,7 @@ async def test_login_callback_redirect_includes_issuer(provider, client):
 
     response = await provider.handle_login_callback(request)
 
-    assert response.status_code == 307
+    assert response.status_code == 303
     location = urlsplit(response.headers["location"])
     query = parse_qs(location.query)
     assert f"{location.scheme}://{location.netloc}{location.path}" == (

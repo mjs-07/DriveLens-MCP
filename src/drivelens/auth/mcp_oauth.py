@@ -234,7 +234,10 @@ class DriveLensOAuthProvider(
 
         redirect_uri = self._add_issuer_parameter(redirect_uri)
 
-        return RedirectResponse(redirect_uri)
+        return RedirectResponse(
+            redirect_uri,
+            status_code=303,
+        )
 
     async def authenticate(
         self,
