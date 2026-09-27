@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.env
+credentials.json
+client_secret.json
+token.json
+*.token
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
