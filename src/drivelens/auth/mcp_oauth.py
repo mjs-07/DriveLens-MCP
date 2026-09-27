@@ -29,6 +29,7 @@ class DriveLensOAuthProvider(
         AccessToken,
     ]
 ):
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
     """
     Minimal OAuth 2.1 authorization provider for DriveLens MVP.
 
@@ -56,6 +57,7 @@ class DriveLensOAuthProvider(
         self.tokens: dict[str, AccessToken] = {}
 
         self.state_mapping: dict[str, dict[str, Any]] = {}
+        
 
     async def get_client(
         self,
@@ -208,16 +210,15 @@ class DriveLensOAuthProvider(
         if not isinstance(state, str):
             raise HTTPException(400, "Invalid state")
 
-        redirect_uri = await self.authenticate(
-            username,
-            password,
-            state,
+        redirect_uri = construct_redirect_uri(
+            client,
+            authorization_code=code,
+            state=state,
         )
 
-        return RedirectResponse(
-            url=redirect_uri,
-            status_code=302,
-        )
+        redirect_uri = self._add_issuer_parameter(redirect_uri)
+
+        return RedirectResponse(redirect_uri)
 
     async def authenticate(
         self,
@@ -360,3 +361,19 @@ class DriveLensOAuthProvider(
         token_type_hint: str | None = None,
     ) -> None:
         self.tokens.pop(token, None)
+
+    def _add_issuer_parameter(self, redirect_uri: str) -> str:
+        parts = urlsplit(redirect_uri)
+
+        query = dict(parse_qsl(parts.query, keep_blank_values=True))
+        query["iss"] = self.server_url.rstrip("/") + "/"
+
+        return urlunsplit(
+            (
+                parts.scheme,
+                parts.netloc,
+                parts.path,
+                urlencode(query),
+                parts.fragment,
+            )
+        )
