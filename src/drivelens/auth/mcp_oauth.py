@@ -1,6 +1,7 @@
 import secrets
 import time
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import AnyHttpUrl
 
@@ -29,7 +30,6 @@ class DriveLensOAuthProvider(
         AccessToken,
     ]
 ):
-    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
     """
     Minimal OAuth 2.1 authorization provider for DriveLens MVP.
 
@@ -210,10 +210,26 @@ class DriveLensOAuthProvider(
         if not isinstance(state, str):
             raise HTTPException(400, "Invalid state")
 
-        redirect_uri = construct_redirect_uri(
-            client,
-            authorization_code=code,
-            state=state,
+        state_data = self.state_mapping.get(state)
+        if not state_data:
+            raise HTTPException(
+                400,
+                "Invalid or expired OAuth state",
+            )
+
+        client_id = state_data.get("client_id")
+        client = (
+            self.clients.get(client_id)
+            if isinstance(client_id, str)
+            else None
+        )
+        if client is None:
+            raise HTTPException(400, "Unknown OAuth client")
+
+        redirect_uri = await self.authenticate(
+            username,
+            password,
+            state,
         )
 
         redirect_uri = self._add_issuer_parameter(redirect_uri)

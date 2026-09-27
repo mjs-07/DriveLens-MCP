@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "drivelens": {
+      "url": "https://drivelens-mcp.onrender.com/mcp",
+      "type": "http"
+    }
+  }
+}

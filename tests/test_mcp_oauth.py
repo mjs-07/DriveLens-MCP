@@ -1,6 +1,8 @@
 import time
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from starlette.requests import Request
 
 from drivelens.auth.mcp_oauth import DriveLensOAuthProvider
 from mcp.shared.auth import OAuthClientInformationFull
@@ -33,6 +35,60 @@ async def test_register_and_get_client(provider, client):
 
     assert result is not None
     assert result.client_id == "test-client"
+
+
+@pytest.mark.anyio
+async def test_login_callback_redirect_includes_issuer(provider, client):
+    provider.server_url = "https://drivelens-mcp.onrender.com"
+    await provider.register_client(client)
+
+    state = "test-state"
+    provider.state_mapping[state] = {
+        "redirect_uri": "http://localhost:9000/callback",
+        "code_challenge": "test-challenge",
+        "redirect_uri_provided_explicitly": True,
+        "client_id": client.client_id,
+        "resource": "http://localhost:8000/mcp",
+    }
+    body = b"username=demo_user&password=demo_password&state=test-state"
+
+    async def receive():
+        return {
+            "type": "http.request",
+            "body": body,
+            "more_body": False,
+        }
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "headers": [
+                (b"content-type", b"application/x-www-form-urlencoded"),
+            ],
+            "path": "/login/callback",
+            "query_string": b"",
+        },
+        receive,
+    )
+
+    response = await provider.handle_login_callback(request)
+
+    assert response.status_code == 307
+    location = urlsplit(response.headers["location"])
+    query = parse_qs(location.query)
+    assert f"{location.scheme}://{location.netloc}{location.path}" == (
+        "http://localhost:9000/callback"
+    )
+    assert query["iss"] == ["https://drivelens-mcp.onrender.com/"]
+    assert query["state"] == [state]
+    assert len(query["code"]) == 1
+
+    authorization_code = provider.auth_codes[query["code"][0]]
+    assert authorization_code.client_id == client.client_id
+    assert authorization_code.code_challenge == "test-challenge"
+    assert authorization_code.scopes == ["drive:read"]
+    assert authorization_code.resource == "http://localhost:8000/mcp"
 
 
 @pytest.mark.anyio
