@@ -1,32 +1,29 @@
-from src.drivelens.services.drive import get_drive_service
+import drivelens.services.drive as drive_service
 
 
-def main():
-    drive = get_drive_service()
+def test_get_drive_service(monkeypatch):
+    fake_credentials = object()
+    fake_drive_service = object()
 
-    response = (
-        drive.files()
-        .list(
-            pageSize=10,
-            fields="files(id,name,mimeType,modifiedTime,size)",
-        )
-        .execute()
+    monkeypatch.setattr(
+        drive_service,
+        "get_credentials",
+        lambda: fake_credentials,
     )
 
-    files = response.get("files", [])
+    def fake_build(service_name, version, credentials):
+        assert service_name == "drive"
+        assert version == "v3"
+        assert credentials is fake_credentials
 
-    print()
-    print(f"Google Drive API: SUCCESS")
-    print(f"Files returned: {len(files)}")
-    print()
+        return fake_drive_service
 
-    for file in files:
-        print(
-            f"- {file.get('name')} "
-            f"[{file.get('mimeType')}] "
-            f"id={file.get('id')}"
-        )
+    monkeypatch.setattr(
+        drive_service,
+        "build",
+        fake_build,
+    )
 
+    result = drive_service.get_drive_service()
 
-if __name__ == "__main__":
-    main()
+    assert result is fake_drive_service
